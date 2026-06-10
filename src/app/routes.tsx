@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate } from "react-router";
+import { createHashRouter as createBrowserRouter, Navigate } from "react-router";
 import { SuperAdminDashboard } from "./components/SuperAdminDashboard";
 import { AddAdminPage } from "./components/AddAdminPage";
 import { AuditLogsPage } from "./components/AuditLogsPage";
