@@ -1,0 +1,11 @@
+
+> nexus-frontend@0.0.1 dev
+> vite
+
+(node:25342) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+  VITE v6.3.5  ready in 209 ms
+
+  ➜  Local:   http://localhost:5173/
+  ➜  Network: use --host to expose
