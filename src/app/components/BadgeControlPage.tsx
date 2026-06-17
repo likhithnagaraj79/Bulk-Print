@@ -14,8 +14,8 @@ interface EditorTemplate {
   border: { color: string; width: number };
 }
 
-const CANVAS_W = 380;
-const CANVAS_H = 540;
+const CANVAS_W = 420; // 4.2 inches at 100px/in (printing area width)
+const CANVAS_H = 360; // 3.6 inches at 100px/in (printing area height)
 
 const pct = (val: number, total: number) => `${((val / total) * 100).toFixed(1)}%`;
 const px = (val: string, total: number) => parseFloat(val) / 100 * total;
@@ -57,10 +57,10 @@ import { toast } from "sonner";
 
 const defaultTemplate: EditorTemplate = {
   fields: [
-    { type: "name", x: 190, y: 160, fontSize: 24, fontWeight: "bold", color: "#000000", align: "center" },
-    { type: "designation", x: 190, y: 200, fontSize: 14, fontWeight: "normal", color: "#666666", align: "center" },
-    { type: "companyName", x: 190, y: 230, fontSize: 14, fontWeight: "normal", color: "#333333", align: "center" },
-    { type: "qrCode", x: 115, y: 360, size: 150 },
+    { type: "name",        x: 210, y: 110, fontSize: 24, fontWeight: "bold",   color: "#000000", align: "center" },
+    { type: "designation", x: 210, y: 150, fontSize: 14, fontWeight: "normal", color: "#666666", align: "center" },
+    { type: "companyName", x: 210, y: 180, fontSize: 14, fontWeight: "normal", color: "#333333", align: "center" },
+    { type: "qrCode",      x: 160, y: 240, size: 100 },
   ],
   background: "#FFFFFF",
   border: { color: "#1E5FCC", width: 2 },
@@ -164,8 +164,8 @@ export function BadgeControlPage() {
     newY = Math.round(newY / 10) * 10;
 
     // Keep within canvas bounds
-    newX = Math.max(0, Math.min(380 - 50, newX));
-    newY = Math.max(0, Math.min(540 - 50, newY));
+    newX = Math.max(0, Math.min(CANVAS_W - 50, newX));
+    newY = Math.max(0, Math.min(CANVAS_H - 50, newY));
 
     // --- Smart Guidelines ---
     const draggedField = template.fields[draggingField];
@@ -440,10 +440,10 @@ export function BadgeControlPage() {
             <div className="mb-8 rounded-xl border border-nexus-border bg-nexus-surface p-6 shadow-sm">
               <h2 className="mb-6 text-xl font-semibold text-nexus-text-primary">Badge Template Editor</h2>
 
-              <div className="grid gap-8 lg:grid-cols-[380px_1fr_280px]">
+              <div className="grid gap-8 lg:grid-cols-[420px_1fr_280px]">
                 {/* Badge Canvas */}
                 <div className="flex flex-col items-center lg:items-start">
-                  <p className="mb-2 text-sm font-medium text-nexus-text-label">Canvas (380×540px)</p>
+                  <p className="mb-2 text-sm font-medium text-nexus-text-label">Printing Area (4.2″ × 3.6″)</p>
                   <div
                     ref={canvasRef}
                     onMouseMove={handleCanvasMouseMove}
@@ -452,8 +452,8 @@ export function BadgeControlPage() {
                     onClick={() => setSelectedField(null)}
                     className="relative overflow-hidden rounded-lg shadow-2xl"
                     style={{
-                      width: "380px",
-                      height: "540px",
+                      width: "420px",
+                      height: "360px",
                       backgroundColor: template.background,
                       border: `${template.border.width}px solid ${template.border.color}`,
                       backgroundImage:
@@ -784,8 +784,8 @@ export function BadgeControlPage() {
                     <div
                       className="relative origin-top transform scale-90 shadow-2xl print:shadow-none"
                       style={{
-                        width: "380px",
-                        height: "540px",
+                        width: "420px",
+                        height: "360px",
                         backgroundColor: template.background,
                         border: `${template.border.width}px solid ${template.border.color}`,
                       }}
@@ -796,7 +796,7 @@ export function BadgeControlPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="flex h-[540px] items-center justify-center rounded-2xl border-2 border-dashed border-nexus-border bg-nexus-surface-hover">
+                  <div className="flex h-[360px] items-center justify-center rounded-2xl border-2 border-dashed border-nexus-border bg-nexus-surface-hover">
                     <div className="max-w-[200px] text-center">
                       <div className="mb-4 flex h-16 w-16 mx-auto items-center justify-center rounded-full bg-nexus-surface shadow-sm text-nexus-text-hint">
                         <Eye className="h-8 w-8" />
@@ -816,6 +816,10 @@ export function BadgeControlPage() {
 
       {/* Print Styles */}
       <style>{`
+        @page {
+          size: 4.2in 6in;
+          margin: 0;
+        }
         @media print {
           body * {
             visibility: hidden;
@@ -827,9 +831,9 @@ export function BadgeControlPage() {
           .print-badge-container {
             position: absolute;
             left: 0;
-            top: 0;
-            width: 380px;
-            height: 540px;
+            top: 1.2in;
+            width: 4.2in;
+            height: 3.6in;
           }
         }
       `}</style>

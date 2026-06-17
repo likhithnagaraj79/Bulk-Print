@@ -41,7 +41,6 @@ export function BulkUploadPage() {
   const [badgeRecords, setBadgeRecords] = useState<BadgePrintRecord[]>([]);
   const [isDraggingBadge, setIsDraggingBadge] = useState(false);
   const badgeFileInputRef = useRef<HTMLInputElement>(null);
-  const [printLayout, setPrintLayout] = useState<"expo1" | "expo2">("expo1");
 
   // Stop polling on unmount
   useEffect(() => () => { if (pollingRef.current) clearInterval(pollingRef.current); }, []);
@@ -194,21 +193,22 @@ export function BulkUploadPage() {
   };
 
   const downloadBadgeTemplate = () => {
-    const headers = ["Name", "Designation", "Company Name"];
-    const ws = XLSX.utils.aoa_to_sheet([headers]);
+    const headers = ["SL No", "Name", "Designation", "Company Name"];
+    const example = [1, "JOHN DOE", "DIRECTOR", "ACME CORP"];
+    const ws = XLSX.utils.aoa_to_sheet([headers, example]);
 
     headers.forEach((_, colIdx) => {
       const cellAddr = XLSX.utils.encode_cell({ r: 0, c: colIdx });
       if (!ws[cellAddr]) ws[cellAddr] = {};
-      ws[cellAddr].s = { font: { bold: true }, alignment: { horizontal: "center" } };
+      ws[cellAddr].s = { font: { bold: true }, fill: { fgColor: { rgb: "1E5FCC" } }, alignment: { horizontal: "center" } };
     });
 
-    ws["!cols"] = [{ wch: 30 }, { wch: 30 }, { wch: 35 }, { wch: 20 }];
+    ws["!cols"] = [{ wch: 8 }, { wch: 30 }, { wch: 30 }, { wch: 35 }];
     (ws as any)["!sheetViews"] = [{ state: "frozen", ySplit: 1, topLeftCell: "A2" }];
 
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Badge Print");
-    XLSX.writeFile(wb, "nexus_badge_print_template.xlsx");
+    XLSX.utils.book_append_sheet(wb, ws, "COSMETICA-2026 BADGES LIST");
+    XLSX.writeFile(wb, "cosmetica_2026_badge_template.xlsx");
   };
 
   const handleBadgeFileDrop = (e: React.DragEvent) => {
@@ -230,20 +230,50 @@ export function BulkUploadPage() {
       const data = await badgeFile.arrayBuffer();
       const workbook = XLSX.read(data);
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      const rows: Record<string, unknown>[] = XLSX.utils.sheet_to_json(sheet, { defval: "" });
 
-      const records: BadgePrintRecord[] = rows
-        .map((row, i) => ({
-          row: i + 2,
-          id: String(i + 1),
-          name: String(row["Name"] ?? row["name"] ?? ""),
-          designation: String(row["Designation"] ?? row["designation"] ?? ""),
-          companyName: String(row["Company Name"] ?? row["company name"] ?? row["companyName"] ?? ""),
-          stallNumber: "",
-          photoUrl: null,
-          badgeQrUrl: null,
-        }))
-        .filter(r => r.name.trim() !== "");
+      // Read every row as a raw array so we can locate the actual header row.
+      // This works whether the file is the master sheet (headers in row 4),
+      // an individual company file (headers in row 5), or a simple template (row 1).
+      const allRows: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+
+      const NAME_VARIANTS = new Set(["name", "name of the person"]);
+      const headerRowIdx = allRows.findIndex(row =>
+        (row as unknown[]).some(cell => NAME_VARIANTS.has(String(cell).toLowerCase().trim()))
+      );
+
+      if (headerRowIdx === -1) {
+        toast.error("Could not find a 'Name' header column. Please use the COSMETICA-2026 template.");
+        return;
+      }
+
+      const headers = (allRows[headerRowIdx] as unknown[]).map(h => String(h).trim());
+      const col = (variants: string[]) => {
+        const v = new Set(variants.map(s => s.toLowerCase()));
+        return headers.findIndex(h => v.has(h.toLowerCase()));
+      };
+
+      const nameIdx    = col(["Name", "name of the person"]);
+      const desigIdx   = col(["Designation"]);
+      const companyIdx = col(["Company Name", "companyName", "company name"]);
+
+      const BAD_NAME = new Set(["name", "name of the person", "sl no", "designation", ""]);
+
+      const records: BadgePrintRecord[] = allRows
+        .slice(headerRowIdx + 1)
+        .map((row, i) => {
+          const r = row as unknown[];
+          return {
+            row: headerRowIdx + i + 2,
+            id: String(i + 1),
+            name:        nameIdx    >= 0 ? String(r[nameIdx]    ?? "").trim() : "",
+            designation: desigIdx   >= 0 ? String(r[desigIdx]   ?? "").trim() : "",
+            companyName: companyIdx >= 0 ? String(r[companyIdx] ?? "").trim() : "",
+            stallNumber: "",
+            photoUrl:    null,
+            badgeQrUrl:  null,
+          };
+        })
+        .filter(r => r.name.trim() !== "" && !BAD_NAME.has(r.name.toLowerCase()));
 
       setBadgeRecords(records);
       toast.success(`Processed ${records.length} records — ready to print`);
@@ -261,39 +291,6 @@ export function BulkUploadPage() {
   };
 
   const printBadgeGrid = () => window.print();
-
-  const expoOptions = [
-    { key: "expo1" as const, label: "Expo 1" },
-    { key: "expo2" as const, label: "Expo 2" },
-  ];
-
-  const ExpoSelector = () => (
-    <div className="mb-6">
-      <p className="mb-3 text-xs font-bold uppercase tracking-widest text-nexus-text-secondary">Select Expo</p>
-      <div className="flex flex-col gap-2.5">
-        {expoOptions.map(opt => (
-          <button
-            key={opt.key}
-            onClick={() => setPrintLayout(opt.key)}
-            className={`flex items-center gap-3 rounded-xl border p-4 text-left transition-all ${
-              printLayout === opt.key
-                ? "border-nexus-brand bg-nexus-brand-light ring-2 ring-nexus-brand/10"
-                : "border-nexus-border bg-nexus-surface-muted hover:border-nexus-brand/30"
-            }`}
-          >
-            <div className={`h-4 w-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-all ${
-              printLayout === opt.key ? "border-nexus-brand bg-nexus-brand" : "border-nexus-border-strong"
-            }`}>
-              {printLayout === opt.key && <div className="h-1.5 w-1.5 rounded-full bg-white" />}
-            </div>
-            <span className={`text-sm font-semibold ${printLayout === opt.key ? "text-nexus-brand" : "text-nexus-text-primary"}`}>
-              {opt.label}
-            </span>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
 
   const formatFileSize = (bytes: number) =>
     bytes < 1024 ? `${bytes} B` : bytes < 1024 ** 2 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / 1024 ** 2).toFixed(1)} MB`;
@@ -555,7 +552,6 @@ export function BulkUploadPage() {
 
                   {badgeRecords.length === 0 ? (
                     <div className="mx-auto max-w-2xl">
-                      <ExpoSelector />
                       <div className="rounded-2xl border border-nexus-border bg-nexus-surface p-8 shadow-sm">
                         <div
                           onDragOver={e => { e.preventDefault(); setIsDraggingBadge(true); }}
@@ -589,7 +585,7 @@ export function BulkUploadPage() {
                         <div className="mt-8 rounded-xl border border-amber-100 bg-amber-50 p-5">
                           <p className="text-sm font-bold text-amber-800">Expected File Format</p>
                           <p className="mt-1 text-xs text-amber-700">
-                            Each row must contain: <strong>Name</strong>, <strong>Designation</strong>, <strong>Company Name</strong>. Accepted formats: CSV, XLS, XLSX. Badges print at <strong>10 × 15 cm</strong> (one per page).
+                            Each row must contain: <strong>SL No</strong>, <strong>Name</strong>, <strong>Designation</strong>, <strong>Company Name</strong>. Accepted formats: CSV, XLS, XLSX. Badges print at <strong>4.2 × 6 inch</strong> (one per page).
                           </p>
                         </div>
 
@@ -613,12 +609,11 @@ export function BulkUploadPage() {
                   ) : (
                     /* Badge Records */
                     <div>
-                      <ExpoSelector />
                       {/* Toolbar */}
                       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
                         <div>
                           <h2 className="text-xl font-black text-nexus-text-primary">{badgeRecords.length} Badges Ready</h2>
-                          <p className="text-sm text-nexus-text-secondary">Each badge prints at 10 × 15 cm — one per page</p>
+                          <p className="text-sm text-nexus-text-secondary">Each badge prints at 4.2 × 6 inch — one per page</p>
                         </div>
                         <div className="flex gap-3">
                           <Button onClick={resetBadgePrint} variant="outline" className="h-11 font-bold border-nexus-border-strong">
@@ -683,11 +678,10 @@ export function BulkUploadPage() {
                         ))}
                       </div>
 
-                      {/* Hidden print-only layout — one badge per page at 10×15cm */}
+                      {/* Hidden print-only layout — one badge per page at 4.2×6 inch */}
                       <div id="badge-print-area" aria-hidden="true">
                         {badgeRecords.map(record => (
-                          <div key={record.row} className={`badge-print-item${printLayout === "expo2" ? " badge-print-item-expo2" : ""}`}>
-                            {/* Both expo1 & expo2 use same centered column layout — expo2 is just 1cm higher via CSS class */}
+                          <div key={record.row} className="badge-print-item">
                             <div className="badge-content">
                               <div style={{ textAlign: "center", marginTop: "1cm" }}>
                                 <p style={{ fontWeight: 900, color: "#111827", textTransform: "uppercase", letterSpacing: "0.04em", fontSize: "13pt", lineHeight: 1.3, margin: 0 }}>{record.name}</p>
@@ -712,13 +706,13 @@ export function BulkUploadPage() {
       </div>
 
       {/* Print styles
-          Page  : 10cm × 15cm  (set in Chrome print settings)
-          Layout: top 5.7cm non-printable | 8.3cm printable | bottom 1cm non-printable
-          Width : 9.3cm printable, centred → 0.35cm left/right padding
+          Total badge : 4.2in wide × 6in tall
+          Printing area: 4.2in wide × 3.6in tall
+          Non-printable top: 6in - 3.6in = 2.4in (lanyard/clip area)
       */}
       <style>{`
         @page {
-          size: 10cm 15cm;
+          size: 4.2in 6in;
           margin: 0;
         }
 
@@ -742,20 +736,18 @@ export function BulkUploadPage() {
             position: absolute;
             top: 0;
             left: 0;
-            width: 10cm;
+            width: 4.2in;
           }
 
           .badge-print-item {
-            width: 10cm;
-            height: 15cm;
+            width: 4.2in;
+            height: 6in;
 
-            /* CENTER + NON-PRINTABLE CALCULATION */
-            padding-top: 6.5cm;
-            padding-bottom: 1cm;
-
-            /* CENTER HORIZONTALLY */
-            padding-left: 0.35cm;  /* (10 - 9.3)/2 */
-            padding-right: 0.35cm;
+            /* Push content into the 3.6in printable zone (below 2.4in top) */
+            padding-top: 2.4in;
+            padding-left: 0.1in;
+            padding-right: 0.1in;
+            padding-bottom: 0;
 
             display: flex;
             flex-direction: column;
@@ -769,10 +761,10 @@ export function BulkUploadPage() {
             break-after: avoid;
           }
 
-          /* ACTUAL PRINTABLE CONTENT AREA */
+          /* PRINTABLE CONTENT AREA: 4.0in × 3.6in */
           .badge-content {
-            width: 9.3cm;
-            height: 5.2cm;
+            width: 4.0in;
+            height: 3.6in;
 
             display: flex;
             flex-direction: column;
@@ -780,15 +772,9 @@ export function BulkUploadPage() {
             align-items: center;
           }
 
-          /* Prevent QR clipping */
           .badge-content img {
-            max-width: 2.2cm;
-            max-height: 2.2cm;
-          }
-
-          /* ── EXPO 2 — same layout as expo1 but 1.5cm higher ── */
-          .badge-print-item-expo2 {
-            padding-top: 5.0cm;
+            max-width: 1.5in;
+            max-height: 1.5in;
           }
         }
 
