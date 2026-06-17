@@ -684,12 +684,12 @@ export function BulkUploadPage() {
                           <div key={record.row} className="badge-print-item">
                             <div className="badge-content">
                               <div style={{ textAlign: "center", marginTop: "1cm" }}>
-                                <p style={{ fontWeight: 900, color: "#111827", textTransform: "uppercase", letterSpacing: "0.04em", fontSize: "13pt", lineHeight: 1.3, margin: 0 }}>{record.name}</p>
+                                <p style={{ fontWeight: 900, color: "#111827", textTransform: "uppercase", letterSpacing: "0.04em", fontSize: "18pt", lineHeight: 1.3, margin: 0 }}>{record.name}</p>
                                 {record.designation && (
-                                  <p style={{ fontSize: "11pt", fontWeight: 600, color: "#374151", lineHeight: 1.3, marginTop: "0.15cm" }}>{record.designation}</p>
+                                  <p style={{ fontSize: "15pt", fontWeight: 600, color: "#374151", lineHeight: 1.3, marginTop: "0.15cm" }}>{record.designation}</p>
                                 )}
                                 {record.companyName && (
-                                  <p style={{ fontSize: "10pt", color: "#6B7280", lineHeight: 1.3, marginTop: "0.1cm" }}>{record.companyName}</p>
+                                  <p style={{ fontSize: "13pt", color: "#6B7280", lineHeight: 1.3, marginTop: "0.1cm" }}>{record.companyName}</p>
                                 )}
                               </div>
                             </div>
@@ -743,8 +743,8 @@ export function BulkUploadPage() {
             width: 4.2in;
             height: 6in;
 
-            /* Push content into the 3.6in printable zone (below 2.4in top) */
-            padding-top: 2.4in;
+            /* Push content down 8cm from the top of the badge */
+            padding-top: 8cm;
             padding-left: 0.1in;
             padding-right: 0.1in;
             padding-bottom: 0;
