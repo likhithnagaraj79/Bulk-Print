@@ -29,7 +29,7 @@ export default function App() {
     >
       <RouterProvider router={router} />
       <Toaster
-        position="top-right"
+        position="bottom-center"
         toastOptions={{
           style: {
             fontFamily: "-apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif",
