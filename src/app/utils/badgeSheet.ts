@@ -114,7 +114,7 @@ function parseLong(rows: unknown[][], tab: string): BadgeRecord[] {
 export const ISSUED_TAB = "Pass Issued";
 
 /** Apps Script web-app URL ending in /exec. Empty = Issue Pass not set up yet. */
-export const PASS_SCRIPT_URL = "";
+export const PASS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxScqoYsKEgL9F-CgQYV-JaRAIIvm1QbXaxbKxg2sOIK5GMBMY0gmfQgQd0c1HkX-l1/exec";
 
 export interface IssueInfo {
   at: string;
