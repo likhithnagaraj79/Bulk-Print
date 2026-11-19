@@ -17,6 +17,7 @@ const NAME_VARIANTS = new Set(["name", "name of the person"]);
 const BAD_NAME = new Set(["name", "name of the person", "sl no", "designation", ""]);
 
 const cell = (v: unknown) => String(v ?? "").trim();
+const header = (v: unknown) => cell(v).toLowerCase().replace(/\s+/g, " ").replace(/\s*:$/, "");
 
 /** Parse one worksheet. Finds the header row (the row containing a "Name" cell),
  *  so it works for simple lists and for the COSMETICA layout with a title block. */
@@ -42,6 +43,18 @@ function parseWide(rows: unknown[][], tab: string): BadgeRecord[] | null {
     const desigIdx = headers.findIndex(x => x === `${prefix} ${m[2]} designation`.trim());
     return [{ n: m[2], nameIdx, desigIdx }];
   });
+
+  // Extra people pasted past the last named slot (header cells left blank) continue as
+  // Name/Designation pairs, so a header that stops at "Co-Ex 9" doesn't drop anyone.
+  if (slots.length) {
+    const last = slots[slots.length - 1];
+    const width = Math.max(...rows.map(r => r.length));
+    let n = Number(last.n);
+    for (let c = Math.max(last.nameIdx, last.desigIdx) + 1; c < width; c += 2) {
+      if (headers[c] || headers[c + 1]) break;
+      slots.push({ n: String(++n), nameIdx: c, desigIdx: c + 1 < width ? c + 1 : -1 });
+    }
+  }
 
   const out: BadgeRecord[] = [];
   rows.slice(headerIdx + 1).forEach((r, i) => {
@@ -74,7 +87,7 @@ function parseLong(rows: unknown[][], tab: string): BadgeRecord[] {
     if (cell(r[0]).toLowerCase() === "company name" && cell(r[1])) defaultCompany = cell(r[1]);
   }
 
-  const headers = rows[headerIdx].map(h => cell(h).toLowerCase());
+  const headers = rows[headerIdx].map(header);
   const col = (variants: string[]) => headers.findIndex(h => variants.includes(h));
   const nameIdx = col(["name", "name of the person"]);
   const desigIdx = col(["designation"]);
