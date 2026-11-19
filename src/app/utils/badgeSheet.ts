@@ -110,8 +110,59 @@ function parseLong(rows: unknown[][], tab: string): BadgeRecord[] {
   return out;
 }
 
+/** Tab the Apps Script (apps-script/PassIssue.gs) appends issued passes to. */
+export const ISSUED_TAB = "Pass Issued";
+
+/** Apps Script web-app URL ending in /exec. Empty = Issue Pass not set up yet. */
+export const PASS_SCRIPT_URL = "";
+
+export interface IssueInfo {
+  at: string;
+  name: string;
+  designation: string;
+  phone: string;
+}
+
+const isIssuedTab = (name: string) => name.trim().toLowerCase() === ISSUED_TAB.toLowerCase();
+
 export function parseWorkbook(wb: XLSX.WorkBook): BadgeRecord[] {
-  return wb.SheetNames.flatMap(name => parseSheet(wb.Sheets[name], name));
+  return wb.SheetNames.filter(n => !isIssuedTab(n)).flatMap(name => parseSheet(wb.Sheets[name], name));
+}
+
+/** Company name → latest issue from the "Pass Issued" tab. */
+export function parseIssued(wb: XLSX.WorkBook): Map<string, IssueInfo> {
+  const out = new Map<string, IssueInfo>();
+  const tab = wb.SheetNames.find(isIssuedTab);
+  if (!tab) return out;
+  const rows: unknown[][] = XLSX.utils.sheet_to_json(wb.Sheets[tab], { header: 1, defval: "", raw: false });
+  const headers = (rows[0] ?? []).map(header);
+  const col = (h: string) => headers.indexOf(h);
+  const [at, co, to, de, ph] = ["timestamp", "company name", "issued to", "designation", "phone"].map(col);
+  for (const r of rows.slice(1)) {
+    const company = cell(r[co]);
+    if (!company) continue;
+    out.set(company, { at: cell(r[at]), name: cell(r[to]), designation: cell(r[de]), phone: cell(r[ph]) });
+  }
+  return out;
+}
+
+export async function issuePass(p: { company: string; name: string; designation: string; phone: string }): Promise<IssueInfo> {
+  if (!PASS_SCRIPT_URL) throw new Error("Issue Pass isn't set up yet (Apps Script URL missing).");
+  if (!/^\d{10}$/.test(p.phone)) throw new Error("Phone must be exactly 10 digits");
+  let data: { ok?: boolean; error?: string; at?: string };
+  try {
+    // text/plain keeps this a "simple" request, so no CORS preflight (Apps Script can't answer one).
+    const res = await fetch(PASS_SCRIPT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(p),
+    });
+    data = await res.json();
+  } catch {
+    throw new Error("Couldn't reach the sheet. Check the internet connection and try again.");
+  }
+  if (!data.ok) throw new Error(data.error || "The sheet didn't accept the entry");
+  return { at: data.at ?? "", name: p.name, designation: p.designation, phone: p.phone };
 }
 
 const NOT_PUBLIC =
@@ -126,13 +177,14 @@ async function fetchBuffer(url: string): Promise<ArrayBuffer> {
 
 /** Load every tab of the sheet. Falls back to the gviz CSV endpoint (first tab only)
  *  if the xlsx export is blocked. */
-export async function loadBadgeRecords(): Promise<BadgeRecord[]> {
+export async function loadBadgeRecords(): Promise<{ records: BadgeRecord[]; issued: Map<string, IssueInfo> }> {
   try {
-    return parseWorkbook(XLSX.read(await fetchBuffer(EXPORT_URL)));
+    const wb = XLSX.read(await fetchBuffer(EXPORT_URL));
+    return { records: parseWorkbook(wb), issued: parseIssued(wb) };
   } catch (err) {
     try {
       const wb = XLSX.read(new TextDecoder().decode(await fetchBuffer(GVIZ_CSV_URL)), { type: "string" });
-      return parseSheet(wb.Sheets[wb.SheetNames[0]], "Sheet1");
+      return { records: parseSheet(wb.Sheets[wb.SheetNames[0]], "Sheet1"), issued: new Map() };
     } catch {
       throw err instanceof Error ? err : new Error(NOT_PUBLIC);
     }
